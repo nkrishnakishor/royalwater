@@ -1,27 +1,111 @@
-name: Terraform Syntax Check
+name: Terraform PR Validation
 
 on:
-  push:
-    # Triggers the workflow on pushes to any branch
-    # You can restrict this to specific branches if needed, e.g., branches: [ main ]
   pull_request:
-    # Triggers the workflow on pull requests
+    paths:
+      - 'Modules/**'
+      - 'ec2/**'
+  push:
+    paths:
+      - 'Modules/**'
+      - 'ec2/**'
 
 jobs:
-  validate-terraform:
-    runs-on: ubuntu-latest # The type of runner that the job will run on
+
+  terraform:
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+
+    defaults:
+      run:
+        working-directory: ec2
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4 # Action to check out your repository code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v1 # Action to install a specific version of Terraform CLI
+        uses: hashicorp/setup-terraform@v3
         # with:
-          # Optional: specify a terraform version, e.g., '1.x.x'
-          # terraform_version: 1.6.0 
+        #   terraform_version: 1.6.6
 
-      - name: Terraform Format Check
-        run: terraform fmt -check -recursive # Checks that all files are canonically formatted
+      - name: Terraform Format
+        id: fmt
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        run: terraform init -input=false
 
       - name: Terraform Validate
-        run: terraform validate # Validates the configuration files in a directory
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -input=false
+        continue-on-error: true
+
+      - name: Comment PR with Terraform Results
+        if: |
+          github.event_name == 'pull_request' &&
+          github.base_ref == github.event.repository.default_branch
+        uses: actions/github-script@v7
+        env:
+          PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `
+            #### Terraform Format 🖌 \`${{ steps.fmt.outcome }}\`
+            #### Terraform Init ⚙️ \`${{ steps.init.outcome }}\`
+            #### Terraform Validate 🤖 \`${{ steps.validate.outcome }}\`
+
+            <details><summary>Validation Output</summary>
+
+            \`\`\`
+            ${{ steps.validate.outputs.stdout }}
+            \`\`\`
+
+            </details>
+
+            #### Terraform Plan 📖 \`${{ steps.plan.outcome }}\`
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`
+            ${process.env.PLAN}
+            \`\`\`
+
+            </details>
+
+            ---
+            *Actor: @${{ github.actor }}  
+            Branch: \`${{ github.base_ref }}\`  
+            Working Directory: \`ec2\`  
+            Workflow: \`${{ github.workflow }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+
+  module-fmt:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        # with:
+        #   terraform_version: 1.6.6
+
+      - name: Format Check for Modules
+        run: terraform fmt -check -recursive Modules
