@@ -1,0 +1,27 @@
+name: Terraform Syntax Check
+
+on:
+  push:
+    # Triggers the workflow on pushes to any branch
+    # You can restrict this to specific branches if needed, e.g., branches: [ main ]
+  pull_request:
+    # Triggers the workflow on pull requests
+
+jobs:
+  validate-terraform:
+    runs-on: ubuntu-latest # The type of runner that the job will run on
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4 # Action to check out your repository code
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1 # Action to install a specific version of Terraform CLI
+        # with:
+          # Optional: specify a terraform version, e.g., '1.x.x'
+          # terraform_version: 1.6.0 
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive # Checks that all files are canonically formatted
+
+      - name: Terraform Validate
+        run: terraform validate # Validates the configuration files in a directory
