@@ -1,0 +1,31 @@
+version: 0.2
+
+# Stage 3 — Deploy
+# Reads image digest from BuildArtifact, updates the EKS deployment,
+# waits for rollout to complete.
+# CLUSTER_NAME, ECR_REGISTRY, APP_NAME, AWS_ENDPOINT_URL injected by Terraform.
+
+phases:
+  install:
+    commands:
+      - pip install --quiet awscli
+      - curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      - chmod +x kubectl && mv kubectl /usr/local/bin/kubectl
+
+  pre_build:
+    commands:
+      - echo "Loading image digest from artifact"
+      - cat digest.env
+      - export $(cat digest.env | xargs)
+      - echo "Deploying image digest $IMAGE_DIGEST to cluster $CLUSTER_NAME"
+
+  build:
+    commands:
+      - aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_DEFAULT_REGION
+      - kubectl set image deployment/$APP_NAME $APP_NAME=$ECR_REGISTRY/$APP_NAME:$IMAGE_DIGEST
+      - kubectl rollout status deployment/$APP_NAME --timeout=180s
+
+  post_build:
+    commands:
+      - echo "Deployment complete"
+      - kubectl get pods -l app=$APP_NAME
