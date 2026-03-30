@@ -1,0 +1,19 @@
+{
+  "region": "us-east-1",
+  "use_localstack": false,
+  "aws_account_id": "YOUR_AWS_ACCOUNT_ID",
+  "cluster_name": "debian-k8s",
+  "k8s_version": "1.31",
+  "environment": "dev",
+  "vpc_cidr": "10.1.0.0/16",
+  "subnet_cidrs": ["10.1.1.0/24", "10.1.2.0/24"],
+  "azs": ["us-east-1a", "us-east-1b"],
+  "pod_cidr": "10.244.0.0/16",
+  "service_cidr": "10.96.0.0/12",
+  "control_plane_count": 1,
+  "worker_count": 2,
+  "instance_type": "t3.medium",
+  "root_volume_size": 50,
+  "ami_id": "",
+  "save_ssh_keys": true
+}

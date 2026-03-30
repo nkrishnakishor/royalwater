@@ -1,0 +1,35 @@
+version: 0.2
+
+# Stage 2 — Build
+# Clones source from GitHub (NO_SOURCE), builds Docker image,
+# tags with image content digest, pushes to LocalStack ECR.
+# ECR_REGISTRY and AWS_ENDPOINT_URL are injected by Terraform CodeBuild env vars.
+
+phases:
+  install:
+    commands:
+      - apt-get update -q && apt-get install -y git docker.io curl
+      - pip install --quiet awscli
+
+  build:
+    commands:
+      - echo "Cloning $GITHUB_REPO"
+      - git clone $GITHUB_REPO app-source
+      - cd app-source
+      - docker build -t $APP_NAME .
+      - IMAGE_DIGEST=$(docker images --no-trunc --quiet $APP_NAME | cut -d':' -f2 | cut -c1-12)
+      - echo "Built image with digest tag $IMAGE_DIGEST"
+      - echo "IMAGE_DIGEST=$IMAGE_DIGEST" > /tmp/digest.env
+
+  post_build:
+    commands:
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+      - docker tag $APP_NAME $ECR_REGISTRY/$APP_NAME:$IMAGE_DIGEST
+      - docker push $ECR_REGISTRY/$APP_NAME:$IMAGE_DIGEST
+      - echo "Pushed $ECR_REGISTRY/$APP_NAME:$IMAGE_DIGEST"
+
+artifacts:
+  files:
+    - /tmp/digest.env
+  discard-paths: yes
+  name: BuildArtifact
