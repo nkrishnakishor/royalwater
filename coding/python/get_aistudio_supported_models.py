@@ -12,6 +12,7 @@
 
 # second method
 import openai
+import os
 
 url="https://generativelanguage.googleapis.com/v1beta/openai/",
 client = openai.OpenAI(
