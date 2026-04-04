@@ -38,3 +38,7 @@ terraform.rc
 
 # Ignore Python compiled directories
 **/__pycache__/
+
+# Ignore different files
+*.se2
+*.old
